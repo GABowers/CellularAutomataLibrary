@@ -1,0 +1,7 @@
+﻿Lavi flight - more generally, location and picking directions. How to do? We need to have a location property?
+
+Where/how changes are checked depends on a couiple things:
+1. How many agents are active. If only one, we can check the main grid and either omit a copy or make it a reference to the original
+2. What the agents behavior is. If changing properties, we must check a copy of the grid. If moving, we must check current grid (and don't need deep copy?).
+
+^^^ how to account for? Check for how many agents are active, then check if changing properties/moving? Or just leave to be assigned?
