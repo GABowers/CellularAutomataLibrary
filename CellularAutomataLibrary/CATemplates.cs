@@ -16,11 +16,6 @@ namespace CellularAutomataLibrary
             var state0 = ("state", 0);
             var state1 = ("state", 1);
 
-            CASettings settings = new CASettings()
-            {
-                StateColorMap = new List<Color> { Color.White, Color.Red }
-            };
-
             CAIf moveIf = new CAIf("state", CATargetType.All, new CATarget(CAScale.Local, CAEntityType.Agent, new CANeighborhood(CANeighborhoodType.None)), CAEquality.Equal_to, state0);
             CAThenMove moveThen = new CAThenMove(new CANeighborhood(CANeighborhoodType.Edge), new List<double> { 0.25, 0.25, 0.25, 0.25 }, 1);
             CARule moveRule = new CARule(new List<CAIf> { moveIf }, new List<CAThen> { moveThen });
@@ -32,7 +27,7 @@ namespace CellularAutomataLibrary
                 { "state", (ushort)1 }
             };
             ca.AddAgents(new List<ValueTuple<Dictionary<string, dynamic>, ValueTuple<ushort, ushort, ushort>>> { new ValueTuple<Dictionary<string, dynamic>, ValueTuple<ushort, ushort, ushort>>(center, new ValueTuple<ushort, ushort, ushort>(Convert.ToUInt16(x / 2), Convert.ToUInt16(y / 2), Convert.ToUInt16(z / 2))) });
-            ca.Settings.StateColorMap = new List<Color> { Color.White, Color.White };
+            ca.Settings.StateColorMap = new List<Color> { Color.Red, Color.White };
             ca.Settings.Subprocessing = true;
             ca.Settings.CopyFormat = CACopyFormat.Reference;
             var edge = new Dictionary<string, dynamic>
@@ -68,7 +63,7 @@ namespace CellularAutomataLibrary
                             Console.WriteLine("Moving \"add\" ring outward to scale {0}", curDouble);
                             var newPosition = StaticMethods.AddCircle(new ValueTuple<ushort, ushort, ushort>(x, y, z), curDouble);
                             int pick = (int)Math.Floor(StaticMethods.GetRandomNumber() * newPosition.Count);
-                            ca.AddAgents(new List<ValueTuple<Dictionary<string, dynamic>, ValueTuple<ushort, ushort, ushort>>> { new ValueTuple<Dictionary<string, dynamic>, ValueTuple<ushort, ushort, ushort>>(edge, newPosition[pick]) });
+                            //ca.AddAgents(new List<ValueTuple<Dictionary<string, dynamic>, ValueTuple<ushort, ushort, ushort>>> { new ValueTuple<Dictionary<string, dynamic>, ValueTuple<ushort, ushort, ushort>>(edge, newPosition[pick]) });
                             (changeRule.Thens[1] as CAThenCreate).Location = new CALocationShape(CACreationLocationShapeType.Circle, new ValueTuple<ushort, ushort, ushort>(x, y, z), curDouble);
                         }
                     }
@@ -160,7 +155,7 @@ namespace CellularAutomataLibrary
             }
             else
             {
-                ca.Settings = new CASettings { CopyFormat = CACopyFormat.Reference, StateColorMap = StaticMethods.GetColors(probabilities.Count), StoreChangeCounts = true, StoreCounts = true, Subprocessing = false };
+                ca.Settings = new CASettings { CopyFormat = CACopyFormat.Reference, StateColorMap = StaticMethods.GetColors(probabilities.Count), /*StoreChangeCounts = true,*/ StoreCounts = true, Subprocessing = false, StoreTransitions = true };
             }
             ca.Settings.States = (ushort)probabilities.Count;
             for (int i = 0; i < probabilities.Count; i++)

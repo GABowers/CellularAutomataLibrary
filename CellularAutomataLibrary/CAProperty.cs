@@ -114,87 +114,45 @@ namespace CellularAutomataLibrary
 
     public class CARecord
     {
-        public ConcurrentDictionary<int, ConcurrentDictionary<ValueTuple<string, CAEntityType>, int>> PropertyCount { get; private set; }
-        public ConcurrentDictionary<int, ConcurrentDictionary<ValueTuple<string, CAEntityType>, int>> PropertyChangeCount { get; private set; } // list for iterations, the list for each type of change and its count (and the entity)
+        public List<Dictionary<(CAEntityType, string, dynamic),int>> PropertyCount { get; private set; }
+        public List<Dictionary<(CAEntityType, string, dynamic, dynamic), int>> TransitionCount { get; private set; } // list for iterations, the list for each type of change and its count (and the entity)
         public CARecord()
         {
-            PropertyCount = new ConcurrentDictionary<int, ConcurrentDictionary<(string, CAEntityType), int>>();
-            PropertyChangeCount = new ConcurrentDictionary<int, ConcurrentDictionary<(string, CAEntityType), int>>();
+            PropertyCount = new List<Dictionary<(CAEntityType, string, dynamic), int>>();
+            TransitionCount = new List<Dictionary<(CAEntityType, string, dynamic, dynamic), int>>();
         }
 
-        public void AddCount(int iteration, ValueTuple<string, CAEntityType> input)
+        public void AddCount(Dictionary<(CAEntityType, string, dynamic), int> input)
         {
-            if (PropertyCount.TryGetValue(iteration, out ConcurrentDictionary<(string, CAEntityType), int> value))
-            {
-                if(value.TryGetValue(input, out int count))
-                {
-                    PropertyCount[iteration][input]++;
-                }
-                else
-                {
-                    PropertyCount[iteration].TryAdd(input, 1);
-                }
-            }
-            else
-            {
-                ConcurrentDictionary<ValueTuple<string, CAEntityType>, int> inputDict = new ConcurrentDictionary<(string, CAEntityType), int>();
-                inputDict.TryAdd(input, 1);
-                PropertyCount.TryAdd(iteration, inputDict);
-            }
+            this.PropertyCount.Add(input);
         }
 
-        public void AddChangeCount (int iteration, ValueTuple<string, CAEntityType> input)
+        public void AddTransCount (Dictionary<(CAEntityType, string, dynamic, dynamic), int> input)
         {
-            if (PropertyChangeCount.TryGetValue(iteration, out ConcurrentDictionary<(string, CAEntityType), int> value))
-            {
-                if (PropertyChangeCount[iteration].TryGetValue(input, out int count))
-                {
-                    PropertyChangeCount[iteration][input] = count + 1;
-                }
-                else
-                {
-                    PropertyChangeCount[iteration].TryAdd(input, 1);
-                }
-            }
-            else
-            {
-                ConcurrentDictionary<ValueTuple<string, CAEntityType>, int> inputDict = new ConcurrentDictionary<(string, CAEntityType), int>();
-                inputDict.TryAdd(input, 1);
-                PropertyChangeCount.TryAdd(iteration, inputDict);
-            }
+            this.TransitionCount.Add(input);
         }
 
-        //public static ValueTuple<string, CAEntityType> CreateChangeTuple(ValueTuple<CAEntityType, ValueTuple<CAProperty, CAProperty>> input)
-        //{
-        //    //if(input.Item2.Item1.type != input.Item2.Item2.type)
-        //    //{
-        //    //    throw new Exception("The two properties are not of the same type!");
-        //    //}
-        //    string name = input.Item2.Item1.name + " " + input.Item2.Item1.value + " -> " + input.Item2.Item2.name + " " + input.Item2.Item2.value;
-        //    return (name, input.Item1);
-        //}
-
-        public void Save(int iterations, List<ValueTuple<string, CAEntityType>> toSave, string filename)
+        public void Save(int iterations, (List<(CAEntityType, string, dynamic)>, List<(CAEntityType, string, dynamic, dynamic)>) toSave, string filename)
         {
-            List<ValueTuple<string, CAEntityType>> countProperties = GetCountProperties().Where(x => toSave.Contains(x)).ToList();
-            List<ValueTuple<string, CAEntityType>> changeProperties = GetChangeCountProperties().Where(x => toSave.Contains(x)).ToList();
+            List<(CAEntityType, string, dynamic)> countProperties = GetCountProperties().Where(x => toSave.Item1.Contains(x)).ToList();
+            List<(CAEntityType, string, dynamic, dynamic)> changeProperties = GetTransitionProperties().Where(x => toSave.Item2.Contains(x)).ToList();
 
             List<List<string>> output = new List<List<string>>();
             // intro info?
             List<string> header = new List<string> { "Iteration" };
-            header.AddRange(countProperties.Select(x => x.Item2 + " | " + x.Item1));
-            header.AddRange(changeProperties.Select(x => x.Item2 + " | " + x.Item1));
+            header.AddRange(countProperties.Select(x => x.Item1 + " " + x.Item2 + " | " + (string)Convert.ToString(x.Item3)));
+            header.AddRange(changeProperties.Select(x => (x.Item1.ToString() + " " + (x.Item2) + " | " + (string)Convert.ToString(x.Item3) + " -> " + (string)Convert.ToString(x.Item4))));
             output.Add(header);
             for (int i = 0; i < iterations; i++)
             {
                 List<string> curLine = new List<string>() { i.ToString() };
-                if(PropertyCount.TryGetValue(i, out ConcurrentDictionary<(string, CAEntityType), int> iterationCount))
+                if(PropertyCount.Count > i)
                 {
-                    foreach (var key in countProperties)
+                    foreach (var item in countProperties)
                     {
-                        if (iterationCount.TryGetValue(key, out int value))
+                        if (PropertyCount[i].ContainsKey(item))
                         {
-                            curLine.Add(value.ToString());
+                            curLine.Add(PropertyCount[i][item].ToString());
                         }
                         else
                         {
@@ -202,20 +160,14 @@ namespace CellularAutomataLibrary
                         }
                     }
                 }
-                else
+
+                if (TransitionCount.Count > i)
                 {
-                    foreach (var key in countProperties)
+                    foreach (var item in changeProperties)
                     {
-                        curLine.Add("X");
-                    }
-                }
-                if (PropertyChangeCount.TryGetValue(i, out ConcurrentDictionary<(string, CAEntityType), int> iterationChangeCount))
-                {
-                    foreach (var key in changeProperties)
-                    {
-                        if (iterationChangeCount.TryGetValue(key, out int value))
+                        if (TransitionCount[i].ContainsKey(item))
                         {
-                            curLine.Add(value.ToString());
+                            curLine.Add(TransitionCount[i][item].ToString());
                         }
                         else
                         {
@@ -223,27 +175,19 @@ namespace CellularAutomataLibrary
                         }
                     }
                 }
-                else
-                {
-                    foreach (var key in changeProperties)
-                    {
-                        curLine.Add("X");
-                    }
-                }
-
-                // go through find Xs. If iteration > 0 go back, else use 0
+                //go through find Xs. If iteration > 0 go back, else use 0
                 for (int j = 0; j < curLine.Count; j++)
                 {
-                    if(i == 0)
+                    if (i == 0)
                     {
-                        if(curLine[j].Equals("X"))
+                        if (curLine[j].Equals("X"))
                         {
                             curLine[j] = 0.ToString();
                         }
                     }
                     else
                     {
-                        if(curLine[j].Equals("X"))
+                        if (curLine[j].Equals("X"))
                         {
                             curLine[j] = output.Last()[j];
                         }
@@ -261,24 +205,24 @@ namespace CellularAutomataLibrary
             }
         }
 
-        public List<ValueTuple<string, CAEntityType>> GetCountProperties()
+        public List<(CAEntityType, string, dynamic)> GetCountProperties()
         {
-            List<ValueTuple<string, CAEntityType>> countProperties = new List<(string, CAEntityType)>();
-            foreach (var item in PropertyCount.Values)
+            List<(CAEntityType, string, dynamic)> output = new List<(CAEntityType, string, dynamic)>();
+            foreach (var item in PropertyCount)
             {
-                countProperties.AddRange(item.Keys);
+                output.AddRange(item.Keys);
             }
-            return countProperties.Distinct().ToList();
+            return output.Distinct().ToList();
         }
 
-        public List<ValueTuple<string, CAEntityType>> GetChangeCountProperties()
+        public List<(CAEntityType, string, dynamic, dynamic)> GetTransitionProperties()
         {
-            List<ValueTuple<string, CAEntityType>> changeProperties = new List<(string, CAEntityType)>();
-            foreach (var item in PropertyChangeCount.Values)
+            List<(CAEntityType, string, dynamic, dynamic)> output = new List<(CAEntityType, string, dynamic, dynamic)>();
+            foreach (var item in TransitionCount)
             {
-                changeProperties.AddRange(item.Keys);
+                output.AddRange(item.Keys);
             }
-            return changeProperties.Distinct().ToList();
+            return output.Distinct().ToList();
         }
     }
 
@@ -475,27 +419,27 @@ namespace CellularAutomataLibrary
                         var target = targets[i];
                         var name = ChangeProperty;
                         var property = target.GetProperty(name); // danger here of getting a property that doesn't exist...
-                        cagca.Parent.Parent.Parent.Trans[(int)property] -= 1;
+                        //cagca.Parent.Parent.Parent.Trans[(int)property] -= 1;
                         if (Method == ChangeMethod.Value)
                         {
                             dynamic changed = StaticMethods.Operate(property, Operator, ChangeValue);
                             target.AddProperty((name, changed));
-                            cagca.Parent.Parent.Parent.Trans[(int)changed] += 1;
-                            if(cagca.Parent.Parent.Parent.Settings.StoreChangeCounts)
+                            //cagca.Parent.Parent.Parent.Trans[(int)changed] += 1;
+                            if(cagca.Parent.Parent.Parent.Settings.StoreTransitions)
                             {
-                                cagca.Parent.Parent.Parent.AddChange((target.Type, name + " " + property + " > " + changed));
+                                cagca.Parent.Parent.Parent.AddTransition((target.Type, name, property, changed));
                             }
                         }
                         else if (Method == ChangeMethod.Property)
                         {
-                            var result = Operation.Operate(target, property.value);
+                            var result = Operation.Operate(target, property);
                             //var type = result.GetType();
                             //dynamic changed = new CAProperty(name, result);
                             target.AddProperty((name, result));
-                            cagca.Parent.Parent.Parent.Trans[(int)result] += 1;
-                            if (cagca.Parent.Parent.Parent.Settings.StoreChangeCounts)
+                            //cagca.Parent.Parent.Parent.Trans[(int)result] += 1;
+                            if (cagca.Parent.Parent.Parent.Settings.StoreTransitions)
                             {
-                                cagca.Parent.Parent.Parent.AddChange((target.Type, name + " " + property + " > " + result));
+                                cagca.Parent.Parent.Parent.AddTransition((target.Type, name, property, result));
                             }
                         }
                     }

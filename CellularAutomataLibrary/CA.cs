@@ -19,11 +19,11 @@ namespace CellularAutomataLibrary
         private Task StoreDataTask { get; set; }
         public CASettings Settings { get; set; }
         private CARecord Record { get; set; }
-        private ConcurrentQueue<ValueTuple<int, ConcurrentBag<ValueTuple<CAEntityType, List<(string, dynamic)>>>>> CountQueue { get; set; }
-        private ConcurrentQueue<ValueTuple<int, CAEntityType, string>> ChangeCountQueue { get; set; }
+        private ConcurrentQueue<Dictionary<(CAEntityType, string, dynamic), int>> CountQueue { get; set; }
+        private ConcurrentQueue<Dictionary<(CAEntityType, string,dynamic, dynamic), int>> TransitionQueue { get; set; }
         private List<CAExitCondition> Conditions { get; set; }
         public bool Exit { get; private set; }
-        public List<int> Trans = new List<int>();
+        public Dictionary<(CAEntityType, string, dynamic, dynamic), int> Transitions { get; private set; }
         //System.Diagnostics.Stopwatch sw = new System.Diagnostics.Stopwatch();
         //List<CAProperty> Properties { get; set; }
 
@@ -36,8 +36,8 @@ namespace CellularAutomataLibrary
             Settings = new CASettings();
             Record = new CARecord();
             Conditions = new List<CAExitCondition>();
-            CountQueue = new ConcurrentQueue<(int, ConcurrentBag<(CAEntityType, List<(string, dynamic)>)>)>();
-            ChangeCountQueue = new ConcurrentQueue<(int, CAEntityType, string)>();
+            CountQueue = new ConcurrentQueue<Dictionary<(CAEntityType, string, dynamic), int>>();
+            TransitionQueue = new ConcurrentQueue<Dictionary<(CAEntityType, string, dynamic, dynamic), int>>();
             RandomQueue = new ConcurrentQueue<double>();
             RandomBuilder = Task.Run(() =>
             {
@@ -53,41 +53,46 @@ namespace CellularAutomataLibrary
             {
                 while (true) // check for cancellation token?
                 {
-                    while(ChangeCountQueue.TryDequeue(out var changeCount))
+                    while (TransitionQueue.TryDequeue(out var transCount))
                     {
-                        Record.AddChangeCount(changeCount.Item1, (changeCount.Item3, changeCount.Item2));
+                        Record.AddTransCount(transCount);
                     }
 
                     while (CountQueue.TryDequeue(out var count))
                     {
-                        int iteration = count.Item1;
-                        List<ValueTuple<string, CAEntityType>> counts = new List<(string, CAEntityType)>();
-                        ConcurrentBag<(CAEntityType, List<(string, dynamic)>)> data = count.Item2;
-                        foreach (var item in data)
-                        {
-                            var entityType = item.Item1;
-                            if (item.Item2 != null)
-                            {
-                                foreach (var item2 in item.Item2)
-                                {
-                                    string name = item2.Item1;
-                                    if (name.Equals("state"))
-                                    {
-                                        name += "-" + item2.Item2;
-                                    }
-                                    counts.Add((name, entityType));
-                                }
-                            }
-                        }
-                        foreach (var item in counts)
-                        {
-                            Record.AddCount(iteration, item);
-                        }
+                        Record.AddCount(count);
                     }
+
+                    //while (CountQueue.TryDequeue(out var count))
+                    //{
+                    //    int iteration = count.Item1;
+                    //    List<ValueTuple<string, CAEntityType>> counts = new List<(string, CAEntityType)>();
+                    //    ConcurrentBag<(CAEntityType, List<(string, dynamic)>)> data = count.Item2;
+                    //    foreach (var item in data)
+                    //    {
+                    //        var entityType = item.Item1;
+                    //        if (item.Item2 != null)
+                    //        {
+                    //            foreach (var item2 in item.Item2)
+                    //            {
+                    //                string name = item2.Item1;
+                    //                if (name.Equals("state"))
+                    //                {
+                    //                    name += "-" + item2.Item2;
+                    //                }
+                    //                counts.Add((name, entityType));
+                    //            }
+                    //        }
+                    //    }
+                    //    foreach (var item in counts)
+                    //    {
+                    //        Record.AddCount(iteration, item);
+                    //    }
+                    //}
                 }
             });
             Graph = new CAGraph(this, dimensions, shape);
-            Trans = new List<int> { 0, 0, 0 };
+            Transitions = new Dictionary<(CAEntityType, string, dynamic, dynamic), int>();
         }
 
         public double GetRandomDouble()
@@ -174,8 +179,15 @@ namespace CellularAutomataLibrary
 
         public void Run()
         {
-            Trans = new List<int> { 0, 0, 0 };
-            if(Settings.CopyFormat == CACopyFormat.Reference)
+            if (Settings.StoreTransitions)
+            {
+                var keys = Transitions.Keys.ToList();
+                for (int i = 0; i < keys.Count; i++)
+                {
+                    Transitions[keys[i]] = 0;
+                }
+            }
+            if (Settings.CopyFormat == CACopyFormat.Reference)
             {
                 GraphCopy = Graph;
             }
@@ -208,7 +220,27 @@ namespace CellularAutomataLibrary
             }
             if (Settings.StoreCounts)
             {
-                CountQueue.Enqueue((this.Iteration, counts));
+                Dictionary<(CAEntityType, string, dynamic), int> countDict = new Dictionary<(CAEntityType, string, dynamic), int>();
+                foreach (var entity in counts)
+                {
+                    foreach (var property in entity.Item2)
+                    {
+                        var key = (entity.Item1, property.Item1, property.Item2);
+                        if(countDict.ContainsKey(key))
+                        {
+                            countDict[key] += 1;
+                        }
+                        else
+                        {
+                            countDict.Add(key, 1);
+                        }
+                    }
+                }
+                CountQueue.Enqueue(countDict);
+            }
+            if(Settings.StoreTransitions)
+            {
+                TransitionQueue.Enqueue(new Dictionary<(CAEntityType, string, dynamic, dynamic), int>(this.Transitions));
             }
             for (int i = 0; i < Conditions.Count; i++)
             {
@@ -304,14 +336,26 @@ namespace CellularAutomataLibrary
             Iteration += 1;
         }
 
-        public void AddChange(ValueTuple<CAEntityType, string> input)
+        //public void AddChange(ValueTuple<CAEntityType, string> input)
+        //{
+        //    //ChangeCountQueue.Enqueue((this.Iteration, input.Item1, input.Item2));
+        //}
+
+        public void AddTransition((CAEntityType, string, dynamic, dynamic) key)
         {
-            ChangeCountQueue.Enqueue((this.Iteration, input.Item1, input.Item2));
+            if(this.Transitions.ContainsKey(key))
+            {
+                this.Transitions[key] += 1;
+            }
+            else
+            {
+                this.Transitions.Add(key, 1);
+            }
         }
 
-        public void Save(List<ValueTuple<string, CAEntityType>> toSave, string path)
+        public void Save((List<(CAEntityType, string, dynamic)>, List<(CAEntityType, string, dynamic, dynamic)>) toSave, string path)
         {
-            while (ChangeCountQueue.Count > 0)
+            while (TransitionQueue.Count > 0)
             {
                 ;
             }
@@ -322,12 +366,9 @@ namespace CellularAutomataLibrary
             Record.Save(Iteration, toSave, path);
         }
 
-        public List<ValueTuple<string, CAEntityType>> ListSaveProperties()
+        public (List<(CAEntityType, string, dynamic)>, List<(CAEntityType, string, dynamic, dynamic)>) ListSaveProperties()
         {
-            List<ValueTuple<string, CAEntityType>> saveProperties = new List<(string, CAEntityType)>();
-            saveProperties.AddRange(Record.GetCountProperties());
-            saveProperties.AddRange(Record.GetChangeCountProperties());
-            return saveProperties; ;
+            return (Record.GetCountProperties(), Record.GetTransitionProperties());
         }
 
         public void CreateExitCondition(CAExitCondition condition)

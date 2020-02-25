@@ -14,7 +14,7 @@ namespace CellularAutomataLibrary
         /// </summary>
         public CACopyFormat CopyFormat { get; set; }
         public bool StoreCounts { get; set; }
-        public bool StoreChangeCounts { get; set; }
+        public bool StoreTransitions { get; set; }
         public ushort States { get; set; }
 
         public CASettings()
@@ -22,7 +22,7 @@ namespace CellularAutomataLibrary
             Subprocessing = false;
             CopyFormat = CACopyFormat.DeepCopy;
             StoreCounts = false;
-            StoreChangeCounts = false;
+            StoreTransitions = false;
         }
     }
 }
