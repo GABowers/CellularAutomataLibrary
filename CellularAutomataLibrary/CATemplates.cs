@@ -196,9 +196,19 @@ namespace CellularAutomataLibrary
             });
             output.Wait();
             Console.WriteLine("Task complete after: " + (DateTime.Now - now).TotalSeconds + " seconds");
-
+            var probString = probabilities.Select(x => x.Select(y => y.ToString()).ToList()).ToList();
+            for (int i = 0; i < probString.Count; i++)
+            {
+                probString[i].Insert(0, i.ToString());
+            }
             // save data
-            ca.Save(ca.ListSaveProperties(), savePath + System.IO.Path.DirectorySeparatorChar + start.ToString("o").Replace(':', '.') + " Iteration " + ca.Iteration + " Data.csv");
+            List<List<string>> header = new List<List<string>>()
+            {
+                new List<string>{now.ToString("o") },
+                new List<string>{"Chemical Equilibrium"},
+            };
+            header.AddRange(probString);
+            ca.Save(header, ca.ListSaveProperties(), savePath + System.IO.Path.DirectorySeparatorChar + start.ToString("o").Replace(':', '.') + " Iteration " + ca.Iteration + " Data.csv");
             Console.WriteLine("Data saved to: " + savePath + System.IO.Path.DirectorySeparatorChar + start.ToString("o").Replace(':', '.') + " Iteration " + ca.Iteration + " Data.csv");
             Console.WriteLine();
             Console.WriteLine("Enter Y to save image, and anything else to skip.");

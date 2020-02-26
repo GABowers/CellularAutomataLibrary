@@ -132,12 +132,14 @@ namespace CellularAutomataLibrary
             this.TransitionCount.Add(input);
         }
 
-        public void Save(int iterations, (List<(CAEntityType, string, dynamic)>, List<(CAEntityType, string, dynamic, dynamic)>) toSave, string filename)
+        public void Save(List<List<string>> mainHeader, int iterations, (List<(CAEntityType, string, dynamic)>, List<(CAEntityType, string, dynamic, dynamic)>) toSave, string filename)
         {
             List<(CAEntityType, string, dynamic)> countProperties = GetCountProperties().Where(x => toSave.Item1.Contains(x)).ToList();
             List<(CAEntityType, string, dynamic, dynamic)> changeProperties = GetTransitionProperties().Where(x => toSave.Item2.Contains(x)).ToList();
 
             List<List<string>> output = new List<List<string>>();
+            output.AddRange(mainHeader);
+            output.Add(new List<string>());
             // intro info?
             List<string> header = new List<string> { "Iteration" };
             header.AddRange(countProperties.Select(x => x.Item1 + " " + x.Item2 + " | " + (string)Convert.ToString(x.Item3)));

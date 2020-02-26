@@ -49,6 +49,7 @@ namespace CellularAutomataLibrary
                     }
                 }
             });
+            // use actionblocks?
             StoreDataTask = Task.Run(() =>
             {
                 while (true) // check for cancellation token?
@@ -309,7 +310,7 @@ namespace CellularAutomataLibrary
                                     }
                                     else // this means it's a proportionality
                                     {
-                                        double prop = (double)diff / this.CurrentCounts[k];
+                                        double prop = (double)diff / this.CurrentCounts.Sum();
                                         if (prop > 1)
                                         {
                                             prop = prop - 1;
@@ -353,7 +354,7 @@ namespace CellularAutomataLibrary
             }
         }
 
-        public void Save((List<(CAEntityType, string, dynamic)>, List<(CAEntityType, string, dynamic, dynamic)>) toSave, string path)
+        public void Save(List<List<string>> mainHeader, (List<(CAEntityType, string, dynamic)>, List<(CAEntityType, string, dynamic, dynamic)>) toSave, string path)
         {
             while (TransitionQueue.Count > 0)
             {
@@ -363,7 +364,7 @@ namespace CellularAutomataLibrary
             {
                 ;
             }
-            Record.Save(Iteration, toSave, path);
+            Record.Save(mainHeader, Iteration, toSave, path);
         }
 
         public (List<(CAEntityType, string, dynamic)>, List<(CAEntityType, string, dynamic, dynamic)>) ListSaveProperties()
