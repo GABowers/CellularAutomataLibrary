@@ -13,8 +13,8 @@ namespace CellularAutomataLibrary
         {
             DateTime start = DateTime.Now;
             bool alive = true;
-            var state0 = ("state", 0);
-            var state1 = ("state", 1);
+            var state0 = ("state", (ushort)0);
+            var state1 = ("state", (ushort)1);
 
             CAIf moveIf = new CAIf("state", CATargetType.All, new CATarget(CAScale.Local, CAEntityType.Agent, new CANeighborhood(CANeighborhoodType.None)), CAEquality.Equal_to, state0);
             CAThenMove moveThen = new CAThenMove(new CANeighborhood(CANeighborhoodType.Edge), new List<double> { 0.25, 0.25, 0.25, 0.25 }, 1);
@@ -35,21 +35,27 @@ namespace CellularAutomataLibrary
                 { "state", (ushort)0 }
             };
 
+            var minDim = Math.Min(x, y);
+            var minDouble = 1.0;
+            var minShift = Math.Max(1.0 / minDim, 0.01);
+            var curDouble = 1.0;
             if (useRings)
             {
-                var minDim = Math.Min(x, y);
-                var minDouble = Math.Max(10.0 / minDim, 0.01);
-                var minShift = Math.Max(1.0 / minDim, 0.01);
-                var curDouble = minDouble;
+                minDouble = Math.Max(10.0 / minDim, 0.01);
+                curDouble = minDouble;
+            }
 
-                CAIf changeIf1 = new CAIf("state", CATargetType.All, new CATarget(CAScale.Local, CAEntityType.Agent, new CANeighborhood(CANeighborhoodType.None)), CAEquality.Equal_to, state0);
-                CAIf changeIf2 = new CAIf("state", CATargetType.Any, new CATarget(CAScale.Regional, CAEntityType.Agent, new CANeighborhood(CANeighborhoodType.Edge)), CAEquality.Equal_to, state1);
-                CAThenChange changeThen = new CAThenChange(new CATarget(CAScale.Local, CAEntityType.Agent, new CANeighborhood(CANeighborhoodType.None)), "state", CAOperator.Equal, (ushort)1, 1);
-                CAThenCreate changeCreate = new CAThenCreate(new CALocationShape(CACreationLocationShapeType.Circle, new ValueTuple<ushort, ushort, ushort>(x, y, z), curDouble), (ushort)0, 1); // this adds ~1 GB for 5001
-                CARule changeRule = new CARule(new List<CAIf> { changeIf1, changeIf2 }, new List<CAThen> { changeThen, changeCreate });
-                (changeRule.Thens[1] as CAThenCreate).Failed += ((object source, CreationEventArgs e) =>
+            CAIf changeIf1 = new CAIf("state", CATargetType.All, new CATarget(CAScale.Local, CAEntityType.Agent, new CANeighborhood(CANeighborhoodType.None)), CAEquality.Equal_to, state0);
+            CAIf changeIf2 = new CAIf("state", CATargetType.Any, new CATarget(CAScale.Regional, CAEntityType.Agent, new CANeighborhood(CANeighborhoodType.Edge)), CAEquality.Equal_to, state1);
+            CAThenChange changeThen = new CAThenChange(new CATarget(CAScale.Local, CAEntityType.Agent, new CANeighborhood(CANeighborhoodType.None)), "state", CAOperator.Equal, (ushort)1, 1);
+            var locationShape = new CALocationShape(CACreationLocationShapeType.Circle, new ValueTuple<ushort, ushort, ushort>(x, y, z), curDouble);
+            CAThenCreate changeCreate = new CAThenCreate(locationShape, (ushort)0, 1); // this adds ~1 GB for 5001
+            CARule changeRule = new CARule(new List<CAIf> { changeIf1, changeIf2 }, new List<CAThen> { changeThen, changeCreate });
+            if (useRings)
+            {
+                (changeRule.Thens[1] as CAThenCreate).Failure += ((object source, CreationEventArgs e) =>
                 {
-                    if (e.Cause == CreationEventArgs.CreationFailureCause.AgentExists)
+                    if (e.Cause == CreationEventArgs.CreationStatus.Failure_AgentExists)
                     {
                         Console.WriteLine("");
                         if ((((changeRule.Thens[1] as CAThenCreate).Location) as CALocationShape).Scale >= 1)
@@ -61,72 +67,77 @@ namespace CellularAutomataLibrary
                         {
                             curDouble += minShift;
                             Console.WriteLine("Moving \"add\" ring outward to scale {0}", curDouble);
-                            var newPosition = StaticMethods.AddCircle(new ValueTuple<ushort, ushort, ushort>(x, y, z), curDouble);
+                            var newPosition = StaticMethods.AddCircle(new ValueTuple<ushort, ushort>(x, y), curDouble);
+                            if (z != 1)
+                            {
+                                newPosition = StaticMethods.AddEllipsoid(new ValueTuple<ushort, ushort, ushort>(x, y, z), curDouble);
+                            }
                             int pick = (int)Math.Floor(StaticMethods.GetRandomNumber() * newPosition.Count);
                             //ca.AddAgents(new List<ValueTuple<Dictionary<string, dynamic>, ValueTuple<ushort, ushort, ushort>>> { new ValueTuple<Dictionary<string, dynamic>, ValueTuple<ushort, ushort, ushort>>(edge, newPosition[pick]) });
-                            (changeRule.Thens[1] as CAThenCreate).Location = new CALocationShape(CACreationLocationShapeType.Circle, new ValueTuple<ushort, ushort, ushort>(x, y, z), curDouble);
+                            var newLocationShape = new CALocationShape(CACreationLocationShapeType.Circle, new ValueTuple<ushort, ushort, ushort>(x, y, z), curDouble);
+                            //foreach(var location in newLocationShape.GetLocations())
+                            //{
+                            //    var loc_x = location.Item1;
+                            //    var loc_y = location.Item2;
+                            //    var loc_z = location.Item3;
+                            //    if (loc_x > x || loc_y > y || loc_z > z)
+                            //}
+                            (changeRule.Thens[1] as CAThenCreate).Location = newLocationShape;
                         }
                     }
                 });
-                ca.AddRule(changeRule);
-                ca.AddRule(moveRule);
-
-                var position = StaticMethods.AddCircle(new ValueTuple<ushort, ushort, ushort>(x, y, z), minDouble);
-                ca.AddAgents(new List<ValueTuple<Dictionary<string, dynamic>, ValueTuple<ushort, ushort, ushort>>> { new ValueTuple<Dictionary<string, dynamic>, ValueTuple<ushort, ushort, ushort>>(edge, position[1]) });
-
-                Console.WriteLine("Press Enter to begin.");
-                Console.ReadKey();
-                //Console.WriteLine("When you see the task complete line below, press any key to continue.");
-                DateTime now = DateTime.Now;
-                Console.WriteLine("Dimensions: {0}, {1}, {2}", x, y, z);
-                Task output = Task.Factory.StartNew(() =>
-                {
-                    while (alive && !(Console.KeyAvailable && Console.ReadKey(true).Key == ConsoleKey.Escape))
-                    {
-                        ca.Run();
-                        Console.Write("\rIteration {0} ({1})", ca.Iteration, ca.Graph.AgentCells.Last().ToString());
-                    }
-                    Console.WriteLine("");
-                });
-                output.Wait();
-                Console.WriteLine("Task complete after: " + (DateTime.Now - now).TotalSeconds + " seconds");
-
             }
             else
             {
-                CAIf changeIf1 = new CAIf("state", CATargetType.All, new CATarget(CAScale.Local, CAEntityType.Agent, new CANeighborhood(CANeighborhoodType.None)), CAEquality.Equal_to, state0);
-                CAIf changeIf2 = new CAIf("state", CATargetType.Any, new CATarget(CAScale.Regional, CAEntityType.Agent, new CANeighborhood(CANeighborhoodType.Edge)), CAEquality.Equal_to, state1);
-                CAThenChange changeThen = new CAThenChange(new CATarget(CAScale.Local, CAEntityType.Agent, new CANeighborhood(CANeighborhoodType.None)), "state", CAOperator.Equal, (ushort)1, 1);
-                CAThenCreate changeCreate = new CAThenCreate(new CALocationShape(CACreationLocationShapeType.Circle, new ValueTuple<ushort, ushort, ushort>(x, y, z), 1), (ushort)0, 1); // this adds ~1 GB for 5001
-                changeCreate.Failed += ((object source, CreationEventArgs e) =>
+                (changeRule.Thens[1] as CAThenCreate).Failure += ((object source, CreationEventArgs e) =>
                 {
-                    if (e.Cause == CreationEventArgs.CreationFailureCause.AgentExists)
+                    if (e.Cause == CreationEventArgs.CreationStatus.Failure_AgentExists)
                     {
                         alive = false;
                     }
                 });
-                CARule changeRule = new CARule(new List<CAIf> { changeIf1, changeIf2 }, new List<CAThen> { changeThen, changeCreate });
-                ca.AddRule(changeRule);
-                ca.AddRule(moveRule);
-                var position = StaticMethods.AddCircle(new ValueTuple<ushort, ushort, ushort>(x, y, z), 1);
-                ca.AddAgents(new List<ValueTuple<Dictionary<string, dynamic>, ValueTuple<ushort, ushort, ushort>>> { new ValueTuple<Dictionary<string, dynamic>, ValueTuple<ushort, ushort, ushort>>(edge, position[1]) });
-                Console.WriteLine("Press Enter to begin.");
-                Console.ReadKey();
-                //Console.WriteLine("When you see the task complete line below, press any key to continue.");
-                DateTime now = DateTime.Now;
-                Console.WriteLine("Dimensions: {0}, {1}, {2}", x, y, z);
-                Task output = Task.Factory.StartNew(() =>
-                {
-                    while (alive && !(Console.KeyAvailable && Console.ReadKey(true).Key == ConsoleKey.Escape))
-                    {
-                        ca.Run();
-                        Console.Write("\rIteration {0}", ca.Iteration);
-                    }
-                    Console.WriteLine("");
-                });
-                output.Wait();
-                Console.WriteLine("Task complete after: " + (DateTime.Now - now).TotalSeconds + " seconds");
             }
+            (changeRule.Thens[1] as CAThenCreate).Success += ((object source, CreationEventArgs e) =>
+            {
+                while(ca.Graph.AgentCells.Select(xyz => ca.Graph.GetCell(xyz).Agent.GetStateProperty()).Count() > 1)
+                {
+                    var location = ca.Graph.AgentCells[0];
+                    var cell = ca.Graph.GetCell(location);
+                    var stateProperty = cell.Agent.GetStateProperty();
+                    if (StaticMethods.CheckEquality(stateProperty, CAEquality.Equal_to, state1.Item2))
+                    {
+                        ca.Graph.RemoveAgentCell(location);
+                    }
+                }
+            });
+            ca.AddRule(changeRule);
+            ca.AddRule(moveRule);
+
+            var position = StaticMethods.AddCircle(new ValueTuple<ushort, ushort>(x, y), minDouble);
+            if (z != 1)
+            {
+                position = StaticMethods.AddEllipsoid(new ValueTuple<ushort, ushort, ushort>(x, y, z), minDouble);
+            }
+
+            ca.AddAgents(new List<ValueTuple<Dictionary<string, dynamic>, ValueTuple<ushort, ushort, ushort>>> { new ValueTuple<Dictionary<string, dynamic>, ValueTuple<ushort, ushort, ushort>>(edge, position[1]) });
+
+            Console.WriteLine("Press Enter to begin.");
+            Console.ReadKey();
+            //Console.WriteLine("When you see the task complete line below, press any key to continue.");
+            DateTime now = DateTime.Now;
+            Console.WriteLine("Dimensions: {0}, {1}, {2}", x, y, z);
+            Task output = Task.Factory.StartNew(() =>
+            {
+                while (alive && !(Console.KeyAvailable && Console.ReadKey(true).Key == ConsoleKey.Escape))
+                {
+                    ca.Run();
+                    Console.Write("\rIteration {0} {1}   ", ca.Iteration, ca.Graph.AgentCells.Last().ToString());
+
+                }
+                Console.WriteLine("");
+            });
+            output.Wait();
+            Console.WriteLine("Task complete after: " + (DateTime.Now - now).TotalSeconds + " seconds");
             var image = StaticMethods.MakeImage(ca);
             string filename = path + System.IO.Path.DirectorySeparatorChar + start.ToString("o").Replace(':', '.') + " Iteration " + ca.Iteration + ".bmp";
             image.Save(filename, System.Drawing.Imaging.ImageFormat.Bmp);
@@ -206,6 +217,7 @@ namespace CellularAutomataLibrary
             {
                 new List<string>{now.ToString("o") },
                 new List<string>{"Chemical Equilibrium"},
+                new List<string>{"Probabilities"}
             };
             header.AddRange(probString);
             ca.Save(header, ca.ListSaveProperties(), savePath + System.IO.Path.DirectorySeparatorChar + start.ToString("o").Replace(':', '.') + " Iteration " + ca.Iteration + " Data.csv");

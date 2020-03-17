@@ -135,7 +135,9 @@ namespace CellularAutomataLibrary
         public void Save(List<List<string>> mainHeader, int iterations, (List<(CAEntityType, string, dynamic)>, List<(CAEntityType, string, dynamic, dynamic)>) toSave, string filename)
         {
             List<(CAEntityType, string, dynamic)> countProperties = GetCountProperties().Where(x => toSave.Item1.Contains(x)).ToList();
+            countProperties.Sort();
             List<(CAEntityType, string, dynamic, dynamic)> changeProperties = GetTransitionProperties().Where(x => toSave.Item2.Contains(x)).ToList();
+            changeProperties.Sort();
 
             List<List<string>> output = new List<List<string>>();
             output.AddRange(mainHeader);
@@ -452,7 +454,8 @@ namespace CellularAutomataLibrary
 
     public class CAThenCreate : CAThen
     {
-        public event AgentCreationFailed Failed;
+        public event AgentCreationFailure Failure;
+        public event AgentCreationSuccess Success;
         public CALocation Location { get; set; }
         //CAGraph Graph { get; } // doesn't make sense to "create" at a different scale
         ushort State { get; }
@@ -479,15 +482,16 @@ namespace CellularAutomataLibrary
                             if (!cell.ContainsAgent())
                             {
                                 realLocations.Add(cell);
+                                Success?.Invoke(this, new CreationEventArgs(CreationEventArgs.CreationStatus.Success, locations[i], cell));
                             }
                             else
                             {
-                                Failed?.Invoke(this, new CreationEventArgs(CreationEventArgs.CreationFailureCause.AgentExists, locations[i], cell));
+                                Failure?.Invoke(this, new CreationEventArgs(CreationEventArgs.CreationStatus.Failure_AgentExists, locations[i], cell));
                             }
                         }
                         else
                         {
-                            Failed?.Invoke(this, new CreationEventArgs(CreationEventArgs.CreationFailureCause.CellNull, locations[i]));
+                            Failure?.Invoke(this, new CreationEventArgs(CreationEventArgs.CreationStatus.Failure_CellNull, locations[i]));
                         }
                     }
                     if (realLocations.Count > 0)
@@ -495,10 +499,11 @@ namespace CellularAutomataLibrary
                         int select = (int)Math.Floor(agent.Parent.Parent.Parent.GetRandomDouble() * realLocations.Count);
                         CAGraphCellAgent newAgent = new CAGraphCellAgent(realLocations[select], State);
                         realLocations[select].AddAgent(newAgent);
+                        Success?.Invoke(this, new CreationEventArgs(CreationEventArgs.CreationStatus.Success, realLocations[select].Position, realLocations[select]));
                     }
                     else
                     {
-                        Failed?.Invoke(this, new CreationEventArgs(CreationEventArgs.CreationFailureCause.NoLocations, (ushort.MaxValue, ushort.MaxValue, ushort.MaxValue)));
+                        Failure?.Invoke(this, new CreationEventArgs(CreationEventArgs.CreationStatus.Failure_NoLocations, (ushort.MaxValue, ushort.MaxValue, ushort.MaxValue)));
                     }
                 }
             }
@@ -563,22 +568,24 @@ namespace CellularAutomataLibrary
         }
     }
 
-    public delegate void AgentCreationFailed(object source, CreationEventArgs e);
+    public delegate void AgentCreationFailure(object source, CreationEventArgs e);
+    public delegate void AgentCreationSuccess(object source, CreationEventArgs e);
     public delegate void PropertyChanged(object source, ChangeEventArgs e);
 
     // TODO change name, or add metadata for successful creation
     public class CreationEventArgs: EventArgs
     {
-        public enum CreationFailureCause
+        public enum CreationStatus
         {
-            AgentExists = 0,
-            CellNull = 1,
-            NoLocations=2
+            Success=0,
+            Failure_AgentExists = 1,
+            Failure_CellNull = 2,
+            Failure_NoLocations = 3
         }
-        public CreationFailureCause Cause { get; }
+        public CreationStatus Cause { get; }
         public ValueTuple<ushort, ushort, ushort> Location { get; }
         public CAGraphCell Cell { get; }
-        public CreationEventArgs(CreationFailureCause cause, ValueTuple<ushort, ushort, ushort> location, CAGraphCell cell = null)
+        public CreationEventArgs(CreationStatus cause, ValueTuple<ushort, ushort, ushort> location, CAGraphCell cell = null)
         {
             this.Cause = cause;
             this.Location = location;
@@ -673,7 +680,7 @@ namespace CellularAutomataLibrary
                     Locations = StaticMethods.AddEllipsoid(dimensions, scale).ToArray();
                     break;
                 case CACreationLocationShapeType.Circle:
-                    Locations = StaticMethods.AddCircle(dimensions, scale).ToArray();
+                    Locations = StaticMethods.AddCircle((dimensions.Item1, dimensions.Item2), scale).ToArray();
                     break;
             }
         }

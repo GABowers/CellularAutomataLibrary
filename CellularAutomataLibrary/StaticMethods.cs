@@ -116,9 +116,9 @@ namespace CellularAutomataLibrary
             {
                 for (double j = 0; j < totalAzimuth; j += increments.Item2)
                 {
-                    ushort x = (ushort)Math.Floor(scale * Math.Sin(i) * Math.Cos(j));
-                    ushort y = (ushort)Math.Floor(scale * Math.Sin(i) * Math.Sin(j));
-                    ushort z = (ushort)Math.Floor(scale * Math.Cos(i));
+                    ushort x = (ushort)Math.Round(scale * Math.Sin(i) * Math.Cos(j));
+                    ushort y = (ushort)Math.Round(scale * Math.Sin(i) * Math.Sin(j));
+                    ushort z = (ushort)Math.Round(scale * Math.Cos(i));
                     ValueTuple<ushort, ushort, ushort> current = new ValueTuple<ushort, ushort, ushort>(x, y, z);
                     locations.Add(current);
                 }
@@ -128,12 +128,12 @@ namespace CellularAutomataLibrary
             // divide by 2 and get coordinates. If the same as the previous set, don't need to subdivide any more.
         }
 
-        public static List<ValueTuple<ushort, ushort, ushort>> AddCircle(ValueTuple<ushort, ushort, ushort> dimensions, double scale)
+        public static List<ValueTuple<ushort, ushort, ushort>> AddCircle(ValueTuple<ushort, ushort> dimensions, double scale)
         {
             double a = (double)dimensions.Item1 / 2;
             double b = (double)dimensions.Item2 / 2;
-            double a_floor = Math.Floor(a);
-            double b_floor = Math.Floor(b);
+            int a_floor = (int)Math.Round(a);
+            int b_floor = (int)Math.Round(b);
             List<Tuple<ushort, ushort>> locations = new List<Tuple<ushort, ushort>>();
             int total = dimensions.Item1 * dimensions.Item2;
             double val = 360.0 / total;
@@ -143,8 +143,16 @@ namespace CellularAutomataLibrary
                 double rad = (use * Math.PI) / 180.0;
                 double x = (a_floor * Math.Cos(rad)) * scale;
                 double y = (b_floor * Math.Sin(rad)) * scale;
+                var x_floor = (int)Math.Round(x);
+                var y_floor = (int)Math.Round(y);
+                var loc_x = x_floor + a_floor;
+                var loc_y = y_floor + b_floor;
 
-                Tuple<ushort, ushort> loc = new Tuple<ushort, ushort>((ushort)(Math.Floor(x) + a_floor), (ushort)(Math.Floor(y) + b_floor));
+                Tuple<ushort, ushort> loc = new Tuple<ushort, ushort>((ushort)loc_x, (ushort)loc_y);
+                if (loc.Item1 > dimensions.Item1 || loc.Item2 > dimensions.Item2)
+                {
+                    throw new Exception("How did this happen?");
+                }
                 locations.Add(loc);
             }
             var result = locations.Distinct().ToList();
@@ -154,9 +162,9 @@ namespace CellularAutomataLibrary
         static ValueTuple<double, double> Subdivide(int a, int b, int c, double r, double inclination, double azimuth, int xResult, int yResult, int zResult)
         {
             //Console.WriteLine("Inclination: {0} | Azimuth: {1}", inclination, azimuth);
-            int xNew = (int)Math.Floor(r * Math.Sin(inclination) * Math.Cos(azimuth));
-            int yNew = (int)Math.Floor(r * Math.Sin(inclination) * Math.Sin(azimuth));
-            int zNew = (int)Math.Floor(r * Math.Cos(inclination));
+            int xNew = (int)Math.Round(r * Math.Sin(inclination) * Math.Cos(azimuth));
+            int yNew = (int)Math.Round(r * Math.Sin(inclination) * Math.Sin(azimuth));
+            int zNew = (int)Math.Round(r * Math.Cos(inclination));
             if (xNew == xResult && yNew == yResult && zNew == zResult)
             {
                 return new ValueTuple<double, double>(inclination, azimuth);
