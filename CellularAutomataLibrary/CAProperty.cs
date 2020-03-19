@@ -81,8 +81,8 @@ namespace CellularAutomataLibrary
 
     public class CAExitConditionIteration:CAExitCondition
     {
-        public int Iteration { get; set; }
-        public CAExitConditionIteration(int iteration):base(CAExitConditionType.Iteration)
+        public ulong Iteration { get; set; }
+        public CAExitConditionIteration(ulong iteration):base(CAExitConditionType.Iteration)
         {
             this.Iteration = iteration;
         }
@@ -99,11 +99,11 @@ namespace CellularAutomataLibrary
 
     public class CAExitConditionConvergeance:CAExitCondition
     {
-        public int ConvergeanceDelay { get; private set; } // recommended iteration delay before doing comparison
+        public ulong ConvergeanceDelay { get; private set; } // recommended iteration delay before doing comparison
         public double ConvergeanceValue { get; private set; }
         public double ConvergeanceLength { get; private set; }
         public List<List<int>> Counts { get; set; }
-        public CAExitConditionConvergeance(int delay, double value, double length):base(CAExitConditionType.Convergeance)
+        public CAExitConditionConvergeance(ulong delay, double value, double length):base(CAExitConditionType.Convergeance)
         {
             this.ConvergeanceDelay = delay;
             this.ConvergeanceValue = value;
@@ -132,7 +132,7 @@ namespace CellularAutomataLibrary
             this.TransitionCount.Add(input);
         }
 
-        public void Save(List<List<string>> mainHeader, int iterations, (List<(CAEntityType, string, dynamic)>, List<(CAEntityType, string, dynamic, dynamic)>) toSave, string filename)
+        public void Save(List<List<string>> mainHeader, ulong iterations, (List<(CAEntityType, string, dynamic)>, List<(CAEntityType, string, dynamic, dynamic)>) toSave, string filename)
         {
             List<(CAEntityType, string, dynamic)> countProperties = GetCountProperties().Where(x => toSave.Item1.Contains(x)).ToList();
             countProperties.Sort();
@@ -147,7 +147,7 @@ namespace CellularAutomataLibrary
             header.AddRange(countProperties.Select(x => x.Item1 + " " + x.Item2 + " | " + (string)Convert.ToString(x.Item3)));
             header.AddRange(changeProperties.Select(x => (x.Item1.ToString() + " " + (x.Item2) + " | " + (string)Convert.ToString(x.Item3) + " -> " + (string)Convert.ToString(x.Item4))));
             output.Add(header);
-            for (int i = 0; i < iterations; i++)
+            for (int i = 0; (ulong)i < iterations; i++)
             {
                 List<string> curLine = new List<string>() { i.ToString() };
                 if(PropertyCount.Count > i)

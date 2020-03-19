@@ -12,7 +12,7 @@ namespace CellularAutomataLibrary
         private CAGraph GraphCopy { get; set; }
         public CAGraph Graph { get; private set; }
         List<CARule> Rules { get; set; }
-        public int Iteration { get; private set; }
+        public ulong Iteration { get; private set; }
         public List<int> CurrentCounts { get; private set; }
         private ConcurrentQueue<double> RandomQueue { get; set; }
         private Task RandomBuilder { get; set; }
@@ -270,17 +270,17 @@ namespace CellularAutomataLibrary
                 else if (Conditions[i] is CAExitConditionConvergeance caecco)
                 {
                     double length = caecco.ConvergeanceLength;
-                    int iteration = 0;
+                    ulong iteration = 0;
                     if(length < 1)
                     {
-                        iteration = Math.Max(caecco.ConvergeanceDelay, (int)(length * Iteration));
+                        iteration = Math.Max(caecco.ConvergeanceDelay, (ulong)(length * Iteration));
                     }
                     else
                     {
-                        iteration = Math.Max(caecco.ConvergeanceDelay, (int)length);
+                        iteration = Math.Max(caecco.ConvergeanceDelay, (ulong)length);
                     }
                     caecco.Counts.Add(this.CurrentCounts.Select(x => x).ToList());
-                    while(caecco.Counts.Count > (iteration + 1))
+                    while((ulong)(caecco.Counts.Count) > (iteration + 1))
                     {
                         caecco.Counts.RemoveAt(0); // we're checdking the last X values--we want to get rid of any before that time point that we don't need.
                     }
@@ -293,7 +293,7 @@ namespace CellularAutomataLibrary
                             {
                                 if(!this.Exit)
                                 {
-                                    if (lows[k] >= iteration)
+                                    if ((ulong)(lows[k]) >= iteration)
                                     {
                                         this.Exit = true;
                                         break;
@@ -326,7 +326,7 @@ namespace CellularAutomataLibrary
                     }
                     for (int j = 0; j < lows.Count; j++)
                     {
-                        if (lows[j] >= iteration)
+                        if ((ulong)(lows[j]) >= iteration)
                         {
                             this.Exit = true;
                             break;

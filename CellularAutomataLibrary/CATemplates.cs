@@ -146,7 +146,7 @@ namespace CellularAutomataLibrary
             Console.ReadKey();
         }
 
-        public static void ChemicalEquilibrium(ValueTuple<ushort, ushort, ushort> dimensions, List<List<double>> probabilities, string savePath, ValueTuple<int, double, double> convergeanceConditions, CASettings settings = null)
+        public static void ChemicalEquilibrium(ValueTuple<ushort, ushort, ushort> dimensions, List<List<double>> probabilities, string savePath, ValueTuple<ulong, double, double> convergeanceConditions, CASettings settings = null)
         {
             List<(string, dynamic)> stateProperties = new List<(string, dynamic)>();
             for (int i = 0; i < probabilities.Count; i++)
