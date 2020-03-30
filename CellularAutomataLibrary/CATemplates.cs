@@ -36,19 +36,21 @@ namespace CellularAutomataLibrary
             };
 
             var minDim = Math.Min(x, y);
-            var minDouble = 1.0;
-            var minShift = Math.Max(1.0 / minDim, 0.01);
-            var curDouble = 1.0;
+            int percent = 100;
+            //var minDouble = 1.0;
+            //var minShift = Math.Max(1.0 / minDim, 0.01);
+            //var curDouble = 1.0;
             if (useRings)
             {
-                minDouble = Math.Max(10.0 / minDim, 0.01);
-                curDouble = minDouble;
+                percent = 1;
+                //minDouble = Math.Max(10.0 / minDim, 0.01);
+                //curDouble = minDouble;
             }
 
             CAIf changeIf1 = new CAIf("state", CATargetType.All, new CATarget(CAScale.Local, CAEntityType.Agent, new CANeighborhood(CANeighborhoodType.None)), CAEquality.Equal_to, state0);
             CAIf changeIf2 = new CAIf("state", CATargetType.Any, new CATarget(CAScale.Regional, CAEntityType.Agent, new CANeighborhood(CANeighborhoodType.Edge)), CAEquality.Equal_to, state1);
             CAThenChange changeThen = new CAThenChange(new CATarget(CAScale.Local, CAEntityType.Agent, new CANeighborhood(CANeighborhoodType.None)), "state", CAOperator.Equal, (ushort)1, 1);
-            var locationShape = new CALocationShape(CACreationLocationShapeType.Circle, new ValueTuple<ushort, ushort, ushort>(x, y, z), curDouble);
+            var locationShape = new CALocationShape(CACreationLocationShapeType.Circle, new ValueTuple<ushort, ushort, ushort>(x, y, z), Math.Min(((double)percent / 100.0), 1.0));
             CAThenCreate changeCreate = new CAThenCreate(locationShape, (ushort)0, 1); // this adds ~1 GB for 5001
             CARule changeRule = new CARule(new List<CAIf> { changeIf1, changeIf2 }, new List<CAThen> { changeThen, changeCreate });
             if (useRings)
@@ -58,31 +60,41 @@ namespace CellularAutomataLibrary
                     if (e.Cause == CreationEventArgs.CreationStatus.Failure_AgentExists)
                     {
                         Console.WriteLine("");
-                        if ((((changeRule.Thens[1] as CAThenCreate).Location) as CALocationShape).Scale >= 1)
+                        if (percent == 100)
                         {
                             Console.WriteLine("Outer ring complete.");
                             alive = false;
                         }
                         else
                         {
-                            curDouble += minShift;
-                            Console.WriteLine("Moving \"add\" ring outward to scale {0}", curDouble);
-                            var newPosition = StaticMethods.AddCircle(new ValueTuple<ushort, ushort>(x, y), curDouble);
-                            if (z != 1)
+                            var locPercents = (((e.Location.Item1 - (x/2.0))/(x/2.0)), ((e.Location.Item2 - (y / 2.0)) / (y / 2.0)), ((e.Location.Item3 - (z / 2.0)) / (z / 2.0)));
+                            var maxPer = Math.Max(locPercents.Item1, locPercents.Item2);
+                            if (z > 1)
                             {
-                                newPosition = StaticMethods.AddEllipsoid(new ValueTuple<ushort, ushort, ushort>(x, y, z), curDouble);
+                                maxPer = Math.Max(maxPer, locPercents.Item3);
                             }
-                            int pick = (int)Math.Floor(StaticMethods.GetRandomNumber() * newPosition.Count);
-                            //ca.AddAgents(new List<ValueTuple<Dictionary<string, dynamic>, ValueTuple<ushort, ushort, ushort>>> { new ValueTuple<Dictionary<string, dynamic>, ValueTuple<ushort, ushort, ushort>>(edge, newPosition[pick]) });
-                            var newLocationShape = new CALocationShape(CACreationLocationShapeType.Circle, new ValueTuple<ushort, ushort, ushort>(x, y, z), curDouble);
-                            //foreach(var location in newLocationShape.GetLocations())
-                            //{
-                            //    var loc_x = location.Item1;
-                            //    var loc_y = location.Item2;
-                            //    var loc_z = location.Item3;
-                            //    if (loc_x > x || loc_y > y || loc_z > z)
-                            //}
-                            (changeRule.Thens[1] as CAThenCreate).Location = newLocationShape;
+                            percent++;
+                            while (maxPer > percent)
+                            {
+                                percent++;
+                            }
+                            if (percent > 100)
+                            {
+                                Console.WriteLine("Outer ring complete.");
+                                alive = false;
+                            }
+                            else
+                            {
+                                Console.WriteLine("Moving \"add\" ring outward to {0}%", percent);
+                                var newPosition = StaticMethods.AddCircle(new ValueTuple<ushort, ushort>(x, y), Math.Min(((double)percent / 100.0), 1.0));
+                                if (z != 1)
+                                {
+                                    newPosition = StaticMethods.AddEllipsoid(new ValueTuple<ushort, ushort, ushort>(x, y, z), Math.Min(((double)percent / 100.0), 1.0));
+                                }
+                                int pick = (int)Math.Floor(StaticMethods.GetRandomNumber() * newPosition.Count);
+                                var newLocationShape = new CALocationShape(CACreationLocationShapeType.Circle, new ValueTuple<ushort, ushort, ushort>(x, y, z), Math.Min(((double)percent / 100.0), 1.0));
+                                (changeRule.Thens[1] as CAThenCreate).Location = newLocationShape;
+                            }
                         }
                     }
                 });
@@ -113,10 +125,10 @@ namespace CellularAutomataLibrary
             ca.AddRule(changeRule);
             ca.AddRule(moveRule);
 
-            var position = StaticMethods.AddCircle(new ValueTuple<ushort, ushort>(x, y), minDouble);
+            var position = StaticMethods.AddCircle(new ValueTuple<ushort, ushort>(x, y), Math.Min(((double)percent / 100.0), 1.0));
             if (z != 1)
             {
-                position = StaticMethods.AddEllipsoid(new ValueTuple<ushort, ushort, ushort>(x, y, z), minDouble);
+                position = StaticMethods.AddEllipsoid(new ValueTuple<ushort, ushort, ushort>(x, y, z), Math.Min(((double)percent / 100.0), 1.0));
             }
 
             ca.AddAgents(new List<ValueTuple<Dictionary<string, dynamic>, ValueTuple<ushort, ushort, ushort>>> { new ValueTuple<Dictionary<string, dynamic>, ValueTuple<ushort, ushort, ushort>>(edge, position[1]) });

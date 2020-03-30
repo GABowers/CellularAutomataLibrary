@@ -296,6 +296,84 @@ namespace CellularAutomataLibrary
             }
             return kelly_colors.ToList().GetRange(0, total);
         }
+
+        public static Color[,] LoadImage(string path)
+        {
+            var image = new Bitmap(path);
+            Color[,] colors = new Color[image.Width, image.Height];
+            for (int i = 0; i < image.Width; i++)
+            {
+                for (int j = 0; j < image.Height; j++)
+                {
+                    colors[i, j] = image.GetPixel(i, j);
+                }
+            }
+            return colors;
+        }
+
+        public static List<Color> GetColors(Color[,] image)
+        {
+            List<Color> colors = new List<Color>();
+            int x = image.GetLength(0);
+            int y = image.GetLength(1);
+            for (int i = 0; i < x; i++)
+            {
+                for (int j = 0; j < y; j++)
+                {
+                    colors.Add(image[i, j]);
+                }
+            }
+            colors = colors.Distinct().ToList();
+            return colors;
+        }
+
+        public static Color[,] ChangeColors(Dictionary<Color, Color> exchange, Color[,] array)
+        {
+            int x = array.GetLength(0);
+            int y = array.GetLength(1);
+            Color[,] colors = new Color[x, y];
+            for (int i = 0; i < x; i++)
+            {
+                for (int j = 0; j < y; j++)
+                {
+                    if (exchange.TryGetValue(array[i, j], out Color value))
+                    {
+                        colors[i, j] = value;
+                    }
+                    else
+                    {
+                        colors[i, j] = Color.Black;
+                    }
+                }
+            }
+            return colors;
+        }
+
+        // create CA from colors. Needs rules of course, colors, and a list of their properties. Includes state?
+        // dictionary of colors, with value being the dictionary of properties.
+        public static CA FromColors(Color[,] colors, Dictionary<Color, Dictionary<string, dynamic>> info, List<CARule> rules)
+        {
+            List<ValueTuple<Dictionary<string, dynamic>, ValueTuple<ushort, ushort, ushort>>> agentData = new List<(Dictionary<string, dynamic>, (ushort, ushort, ushort))>();
+            ushort x = (ushort)colors.GetLength(0);
+            ushort y = (ushort)colors.GetLength(1);
+            for (ushort i = 0; i < x; i++)
+            {
+                for (ushort j = 0; j < y; j++)
+                {
+                    if (info.TryGetValue(colors[i,j], out Dictionary<string, dynamic> value))
+                    {
+                        agentData.Add((value, (i, j, 0)));
+                    }
+                }
+            }
+            CA cur = new CA((x, y, 1), GridShape.Square);
+            cur.AddAgents(agentData);
+            foreach (var rule in rules)
+            {
+                cur.AddRule(rule);
+            }
+            return cur;
+        }
     }
 
     static class MyExtensions
